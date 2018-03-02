@@ -18,7 +18,6 @@ class cnn_feature(object):
     extract facial feature from cnn neural network.
 
     """
-
     def __init__(self, prototxt, weights, layer, gpu = True):
 
         """
@@ -73,15 +72,17 @@ class cnn_feature(object):
         self.net.blobs['data'].reshape(1, 3, 112, 96)
         feature_set = {}
 
+        f = open("feature.txt", "w")
+
         for term in os.listdir(image_dir):
             sub_img_dir = os.path.join(image_dir, term)
             sub_feature_list = []
+            f.write(term + "\n")
             for subitem in os.listdir(sub_img_dir):
                 sub_sub_img_dir = os.path.join(sub_img_dir, subitem)
-                sub_sub_feature_list = []
                 for iterm in os.listdir(sub_sub_img_dir):
                     filename = os.path.join(sub_sub_img_dir, iterm)
-                    print filename, iterm
+                    #print filename, iterm
                     # featurename = os.path.join(sub_fea_dir, iterm)
                     img = caffe.io.load_image(filename)
                     if len(img) == 0:
@@ -89,21 +90,15 @@ class cnn_feature(object):
                         continue
 
                     self.net.blobs['data'].data[...] = self.transformer.preprocess('data', img)
-
-
                     self.net.forward()
                     # extract feature
                     feature = copy.copy(self.net.blobs[self.layer].data[0])
-                    sub_sub_feature_list.append(feature)
+                    sub_feature_list.append(feature)
 
-                sub_sub_feature_list.append(feature)
-            sub_feature_list.append(sub_sub_feature_list)
-
-            actor = "name_" + str(term)
-
-            feature_set[actor] = sub_feature_list
+            feature_set[term] = sub_feature_list
 
         sio.savemat(feature_name, feature_set)
+        f.close()
 
 
 def parser_args():
