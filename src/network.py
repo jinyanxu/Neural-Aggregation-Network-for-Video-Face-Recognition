@@ -4,6 +4,7 @@
 import tensorflow as tf
 import numpy as np
 import time
+from data import Data
 
 
 class Network(object):
@@ -21,15 +22,15 @@ class Network(object):
         """
         self.batch_size = batch_size
         self.feature_len = feature_len
-        self.cls_num = class_num
+        self.class_num = class_num
         self.group = group
 
     def create_network(self, input_x):
 
         w1 = tf.get_variable("fc1/weights", shape = [self.feature_len, self.feature_len], initializer = tf.random_normal_initializer(mean = 0.0, stddev = 1e-4))
         b1  = tf.get_variable("fc1/biases", shape = [self.feature_len], initializer = tf.constant_initializer(0.0001))
-        w2 = tf.get_variable("fc2/weights", shape = [self.feature_len, self.cls_num], initializer = tf.random_normal_initializer(mean = 0.0, stddev = 1e-4))
-        b2 = tf.get_variable("fc2/biases", shape = [self.cls_num], initializer = tf.constant_initializer(0.0001))
+        w2 = tf.get_variable("fc2/weights", shape = [self.feature_len, self.class_num], initializer = tf.random_normal_initializer(mean = 0.0, stddev = 1e-4))
+        b2 = tf.get_variable("fc2/biases", shape = [self.class_num], initializer = tf.constant_initializer(0.0001))
         q_param = tf.get_variable("q0", shape = [self.feature_len], initializer = tf.constant_initializer(0.0001))
 
         #attention module 1
@@ -60,17 +61,19 @@ class Network(object):
 
 
         #fc2 layer
-        predict = tf.add(tf.matmul(r2, w1), b1, name = "predict")
+        predict = tf.add(tf.matmul(r2, w2), b2, name = "predict")
         return r2, predict
 
 
-    def train_network(self, epoch):
+    def train_network(self, epoch, filename):
         """
         """
         input_x = tf.placeholder(tf.float32, shape = [self.batch_size, self.group, self.feature_len])
-        label_x = tf.placeholder(tf.int32, shape = [self.batch_size, self.cls_num]) 
+        label_x = tf.placeholder(tf.int32, shape = [self.batch_size, self.class_num]) 
         _, predict = self.create_network(input_x)
 
+        dataset = Data(filename, self.batch_size, self.class_num)
+        dataset.load_feature()
 
         static = tf.equal(tf.argmax(predict, 1), tf.argmax(label_x, 1))
         accuracy = tf.reduce_mean(tf.cast(static, tf.float32))
@@ -89,13 +92,21 @@ class Network(object):
         writer = tf.summary.FileWriter("log/", sess.graph)
 
         for i in range(epoch):
-            x = np.random.rand(50, 5, 100)
-            y = np.random.rand(50, 100)
-            _, acc = sess.run([optim, accuracy], feed_dict = {input_x:x, label_x:y})
-            print("accuarcy %f"%acc)
+            feature_x, labels_x = dataset.next_batch(self.group)
+            _ = sess.run([optim], feed_dict = {input_x:feature_x, label_x:labels_x})
+            if i % 10 == 0:
+                _acc, _loss, results = sess.run([accuracy, loss, merged], feed_dict = {input_x:feature_x, label_x: labels_x})
+                print("%s\tIteration\t%d\tAccuracy\t%f\tLoss\t%f"%(time.asctime(), i, _acc.item(), _loss.item()))
+                writer.add_summary(results, i)
+
+            if i % (epoch / 5) == 0:
+                saver.save(sess, "./model/attention.ckpt", global_step = i)
 
 
 
-
-net = Network(50, 100, 100, 5)
-net.train_network(100)
+if __name__ == "__main__":
+    filename = "./YoutubeFaces.mat"
+    batch_size = 128
+    class_num = 1595
+    net = Network(batch_size, 512, class_num, 5)
+    net.train_network(1000000, filename)
