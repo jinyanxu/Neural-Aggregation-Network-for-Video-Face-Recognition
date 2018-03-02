@@ -1,0 +1,6 @@
+model_checkpoint_path: "attention.ckpt-80000"
+all_model_checkpoint_paths: "attention.ckpt-0"
+all_model_checkpoint_paths: "attention.ckpt-20000"
+all_model_checkpoint_paths: "attention.ckpt-40000"
+all_model_checkpoint_paths: "attention.ckpt-60000"
+all_model_checkpoint_paths: "attention.ckpt-80000"
